@@ -26,11 +26,11 @@ class APIController(
         return apiService.fetchPosts()
                 .filter { it -> it.userId % 2 == 0 }
                 .take(20)
+                .parallel(4)
+                .runOn(Schedulers.parallel())
                 .map { post -> apiService.fetchComments(post.id)
-                        .parallel(4)
-                        .runOn(Schedulers.parallel())
                         .map { comment -> LightComment(email = comment.email, body = comment.body) }
-                        .sequential()
+
                         .collectList()
                         .zipWith(post.toMono()) }
 
@@ -41,6 +41,7 @@ class APIController(
                         title = result.t2.title,
                         comments = result.t1
                 ) }
+                .sequential()
                 .collectList()
                 .map { body -> ResponseEntity.ok().body(body) }
                 .toMono()
